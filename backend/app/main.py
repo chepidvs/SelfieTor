@@ -1,6 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Response, Depends
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -12,16 +13,13 @@ from .submissions_api import router as submissions_router
 
 app = FastAPI(title="SelfieTor API")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5500", "http://127.0.0.1:5500", "http://192.168.1.19:5500"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Lokasi folder frontend (sejajar dengan backend/)
+FRONTEND_DIR = Path(__file__).resolve().parent.parent.parent / "frontend"
 
+# Static: file hasil (template + submission)
 app.mount("/static/templates", StaticFiles(directory=TEMPLATES_DIR), name="templates")
 app.mount("/static/submissions", StaticFiles(directory=SUBMISSIONS_DIR), name="submissions")
+
 app.include_router(templates_router)
 app.include_router(submissions_router)
 
@@ -44,7 +42,6 @@ def health():
 def login(payload: LoginPayload, response: Response):
     if not check_password(payload.password):
         return JSONResponse(status_code=401, content={"detail": "Password salah"})
-
     token = create_session_token()
     response.set_cookie(
         key=SESSION_COOKIE,
@@ -67,6 +64,18 @@ def me(_: bool = Depends(require_login)):
     return {"admin": True}
 
 
-@app.get("/api/protected-test")
-def protected_test(_: bool = Depends(require_login)):
-    return {"message": "Berhasil akses endpoint protected"}
+# ---- Serve frontend (visitor + admin) ----
+@app.get("/")
+def visitor_page():
+    return FileResponse(FRONTEND_DIR / "visitor.html")
+
+@app.get("/admin")
+def admin_login_page():
+    return FileResponse(FRONTEND_DIR / "admin" / "login.html")
+
+@app.get("/admin/dashboard")
+def admin_dashboard_page():
+    return FileResponse(FRONTEND_DIR / "admin" / "dashboard.html")
+
+# Static mount buat sisa file frontend (css/js kalau ada nanti)
+app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
