@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SelfieTor — Jetour GIIAS</title>
+<style>
+  :root{
+    --bg:#14110E; --panel:#1F1A15; --panel2:#272019;
+    --border:#3A322A; --text:#EDE7DF; --muted:#A39B8E;
+    --accent:#E8853A; --accent-press:#C9621F; --ok:#5DCAA5; --err:#E27866;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    line-height:1.5; padding:20px 16px 40px;
+  }
+  .wrap{max-width:420px; margin:0 auto}
+  header{margin-bottom:18px; text-align:center}
+  h1{font-size:18px; font-weight:700; margin:0 0 4px; letter-spacing:.02em}
+  .sub{color:var(--muted); font-size:13px}
+
+  .step{display:none}
+  .step.active{display:block}
+
+  .steplabel{
+    font-size:11px; color:var(--accent); text-transform:uppercase;
+    letter-spacing:.06em; font-weight:700; margin-bottom:10px;
+  }
+
+  .tplgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:18px}
+  .tplcard{
+    border:2px solid var(--border); border-radius:8px; overflow:hidden;
+    cursor:pointer; background:var(--panel2); position:relative;
+  }
+  .tplcard img{width:100%; aspect-ratio:9/16; object-fit:cover; display:block}
+  .tplcard .name{font-size:11px; padding:6px; text-align:center; color:var(--muted)}
+  .tplcard.selected{border-color:var(--accent)}
+  .tplcard.selected .name{color:var(--accent)}
+  .tplempty{color:var(--muted); font-size:13px; text-align:center; padding:30px 0}
+
+  .selfiebtns{display:flex; gap:10px; margin-bottom:14px}
+  .selfiebtns button{flex:1}
+  .selfiepreview{
+    width:100%; aspect-ratio:3/4; border-radius:8px; overflow:hidden;
+    background:var(--panel2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--muted); font-size:13px; margin-bottom:14px;
+  }
+  .selfiepreview img{width:100%; height:100%; object-fit:cover}
+
+  button{
+    font:inherit; font-weight:600; cursor:pointer;
+    border-radius:8px; border:1px solid var(--border);
+    padding:12px 14px; background:var(--panel2); color:var(--text);
+    transition:background .15s; width:100%;
+  }
+  button:hover:not(:disabled){background:var(--border)}
+  button.primary{background:var(--accent); border-color:var(--accent); color:#241300}
+  button.primary:hover:not(:disabled){background:var(--accent-press); border-color:var(--accent-press)}
+  button:disabled{opacity:.4; cursor:not-allowed}
+  .btnrow{display:flex; gap:10px}
+  .btnrow button{flex:1}
+
+  .status{
+    margin-top:12px; font-size:13px; min-height:20px;
+    color:var(--muted); display:flex; align-items:center; gap:8px; justify-content:center;
+  }
+  .status.ok{color:var(--ok)} .status.err{color:var(--err)} .status.work{color:var(--accent)}
+  .spinner{width:13px; height:13px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .stage{display:flex; flex-direction:column; align-items:center; margin-bottom:14px}
+  canvas{width:100%; max-width:340px; aspect-ratio:9/16; height:auto; background:#000; border-radius:8px; border:1px solid var(--border)}
+
+  .adjust{margin-bottom:16px}
+  .field{margin-bottom:10px}
+  .field:last-child{margin-bottom:0}
+  .lbl{display:block; font-size:12px; color:var(--muted); margin:0 0 4px}
+  input[type=range]{width:100%; accent-color:var(--accent)}
+  .rangeval{float:right; color:var(--text); font-size:11px}
+
+  .resultmsg{font-size:13px; text-align:center; margin-top:6px; min-height:18px}
+  .resultmsg.ok{color:var(--ok)} .resultmsg.err{color:var(--err)}
+
+  .startover{margin-top:14px; background:none; border:none; color:var(--muted); text-decoration:underline; font-size:12px; font-weight:400}
+
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>SelfieTor — Jetour GIIAS</h1>
+    <div class="sub">Own the Next Adventure</div>
+  </header>
+
+  <!-- STEP 1: pilih template -->
+  <div class="step active" id="step1">
+    <div class="steplabel">1. Pilih adventure</div>
+    <div class="tplgrid" id="tplGrid">
+      <div class="tplempty">Loading template…</div>
+    </div>
+    <button class="primary" id="toStep2" disabled>Lanjut</button>
+  </div>
+
+  <!-- STEP 2: selfie -->
+  <div class="step" id="step2">
+    <div class="steplabel">2. Ambil selfie</div>
+    <div class="selfiepreview" id="selfiePreview">Belum ada foto</div>
+    <div class="selfiebtns">
+      <button id="btnCamera">📷 Ambil Foto</button>
+      <button id="btnGallery">🖼️ Pilih dari Galeri</button>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="user">
+    <input type="file" id="galleryInput" accept="image/*">
+    <button class="primary" id="toStep3" disabled>Proses Foto</button>
+    <div class="status" id="processStatus"></div>
+  </div>
+
+  <!-- STEP 3: hasil -->
+  <div class="step" id="step3">
+    <div class="steplabel">3. Hasil kamu</div>
+    <div class="stage">
+      <canvas id="canvas" width="1080" height="1920"></canvas>
+    </div>
+    <div class="adjust">
+      <div class="field">
+        <label class="lbl">Skala <span class="rangeval" id="vScale">100%</span></label>
+        <input type="range" id="scale" min="40" max="160" value="100">
+      </div>
+      <div class="field">
+        <label class="lbl">Posisi horizontal <span class="rangeval" id="vX">50%</span></label>
+        <input type="range" id="posx" min="0" max="100" value="50">
+      </div>
+      <div class="field">
+        <label class="lbl">Posisi vertikal <span class="rangeval" id="vY">100%</span></label>
+        <input type="range" id="posy" min="0" max="100" value="100">
+      </div>
+    </div>
+    <div class="btnrow">
+      <button id="btnDownload">⬇️ Download</button>
+      <button class="primary" id="btnSubmit">📤 Submit</button>
+    </div>
+    <div class="resultmsg" id="resultMsg"></div>
+    <button class="startover" id="startOver">Mulai ulang</button>
+  </div>
+</div>
+
+<script type="module">
+import { removeBackground } from 'https://esm.sh/@imgly/background-removal@1.7.0';
+
+const API_BASE = 'http://localhost:8000';
+const $ = id => document.getElementById(id);
+const canvas = $('canvas'), ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let templates = [];
+let selectedTemplate = null;   // {id, name, url}
+let bgImg = null;              // Image of selected template background
+let selfieFile = null;
+let personImg = null;          // bg-removed selfie Image
+
+function goStep(n){
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  $('step' + n).classList.add('active');
+}
+
+function fileToImage(file){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error('Gagal baca gambar'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function urlToImage(url){
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Gagal load template (HTTP ' + res.status + ')');
+  const blob = await res.blob();
+  return fileToImage(blob);
+}
+
+// ---------- STEP 1: load templates ----------
+async function loadTemplates(){
+  try{
+    const res = await fetch(`${API_BASE}/api/templates`);
+    templates = await res.json();
+  }catch(err){
+    $('tplGrid').innerHTML = '<div class="tplempty">Gagal load template. Cek koneksi.</div>';
+    return;
+  }
+  if (!templates.length){
+    $('tplGrid').innerHTML = '<div class="tplempty">Belum ada template tersedia.</div>';
+    return;
+  }
+  const grid = $('tplGrid');
+  grid.innerHTML = '';
+  for (const t of templates){
+    const card = document.createElement('div');
+    card.className = 'tplcard';
+    card.innerHTML = `<img src="${API_BASE}${t.url}" alt="${t.name}"><div class="name">${t.name}</div>`;
+    card.addEventListener('click', () => selectTemplate(t, card));
+    grid.appendChild(card);
+  }
+}
+
+function selectTemplate(t, cardEl){
+  selectedTemplate = t;
+  document.querySelectorAll('.tplcard').forEach(c => c.classList.remove('selected'));
+  cardEl.classList.add('selected');
+  $('toStep2').disabled = false;
+}
+
+$('toStep2').addEventListener('click', () => goStep(2));
+
+// ---------- STEP 2: selfie ----------
+$('btnCamera').addEventListener('click', () => $('cameraInput').click());
+$('btnGallery').addEventListener('click', () => $('galleryInput').click());
+
+async function handleSelfieFile(file){
+  if (!file) return;
+  selfieFile = file;
+  const preview = $('selfiePreview');
+  preview.innerHTML = '';
+  const img = document.createElement('img');
+  img.src = URL.createObjectURL(file);
+  preview.appendChild(img);
+  $('toStep3').disabled = false;
+  $('processStatus').textContent = '';
+}
+
+$('cameraInput').addEventListener('change', e => handleSelfieFile(e.target.files[0]));
+$('galleryInput').addEventListener('change', e => handleSelfieFile(e.target.files[0]));
+
+function setProcessStatus(msg, kind){
+  const el = $('processStatus');
+  el.className = 'status' + (kind ? ' ' + kind : '');
+  el.innerHTML = (kind === 'work' ? '<span class="spinner"></span>' : '') + msg;
+}
+
+$('toStep3').addEventListener('click', async () => {
+  if (!selfieFile || !selectedTemplate) return;
+  $('toStep3').disabled = true;
+  setProcessStatus('Loading template…', 'work');
+  try{
+    bgImg = await urlToImage(`${API_BASE}${selectedTemplate.url}`);
+
+    setProcessStatus('Loading model + motong background…', 'work');
+    const blob = await removeBackground(selfieFile, {
+      progress: (key, cur, total) => {
+        if (key.startsWith('fetch')) setProcessStatus('Download model (sekali aja)… ' + Math.round(cur/total*100) + '%', 'work');
+      }
+    });
+    personImg = await fileToImage(blob);
+
+    goStep(3);
+    render();
+  }catch(err){
+    console.error(err);
+    setProcessStatus('Gagal: ' + err.message + '. Coba foto background polos/terang.', 'err');
+  }finally{
+    $('toStep3').disabled = false;
+  }
+});
+
+// ---------- STEP 3: composite ----------
+function drawCover(img){
+  const r = Math.max(W / img.width, H / img.height);
+  const w = img.width * r, h = img.height * r;
+  ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+}
+
+function drawFrame(){
+  let g = ctx.createLinearGradient(0, 0, 0, H*0.28);
+  g.addColorStop(0, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H*0.28);
+  g = ctx.createLinearGradient(0, H*0.74, 0, H);
+  g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.75)');
+  ctx.fillStyle = g; ctx.fillRect(0, H*0.74, W, H*0.26);
+
+  ctx.textAlign = 'center'; ctx.fillStyle = '#EDE7DF';
+  ctx.font = '600 26px -apple-system,sans-serif';
+  ctx.fillText('I  J U S T  C O M P L E T E D', W/2, 110);
+  ctx.font = '800 78px -apple-system,sans-serif';
+  ctx.fillText('THE NEXT ADVENTURE', W/2, 190);
+  ctx.font = '600 24px -apple-system,sans-serif'; ctx.fillStyle = '#E8853A';
+  ctx.fillText('WITH JETOUR T2 i-DM', W/2, 234);
+
+  ctx.fillStyle = '#EDE7DF'; ctx.font = '700 40px -apple-system,sans-serif';
+  ctx.fillText('#OwnTheNextAdventure', W/2, H - 80);
+
+  const bx = W - 170, by = H - 320, br = 110;
+  ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(20,17,14,0.85)'; ctx.fill();
+  ctx.lineWidth = 4; ctx.strokeStyle = '#E8853A'; ctx.stroke();
+  ctx.fillStyle = '#E8853A'; ctx.font = '800 40px -apple-system,sans-serif';
+  ctx.fillText('T2', bx, by - 6);
+  ctx.fillStyle = '#EDE7DF'; ctx.font = '600 18px -apple-system,sans-serif';
+  ctx.fillText('ADVENTURE', bx, by + 28);
+  ctx.fillText('COMPLETED', bx, by + 50);
+}
+
+function render(){
+  ctx.clearRect(0, 0, W, H);
+  if (bgImg) drawCover(bgImg);
+  if (personImg){
+    const scale = +$('scale').value / 100;
+    const px = +$('posx').value / 100;
+    const py = +$('posy').value / 100;
+    const baseH = H * 0.85 * scale;
+    const r = baseH / personImg.height;
+    const pw = personImg.width * r, ph = personImg.height * r;
+    const x = (W - pw) * px;
+    const y = (H - ph) * py;
+    ctx.drawImage(personImg, x, y, pw, ph);
+  }
+  drawFrame();
+}
+
+for (const id of ['scale','posx','posy']){
+  $(id).addEventListener('input', () => {
+    $('vScale').textContent = $('scale').value + '%';
+    $('vX').textContent = $('posx').value + '%';
+    $('vY').textContent = $('posy').value + '%';
+    render();
+  });
+}
+
+function setResultMsg(msg, kind){
+  const el = $('resultMsg');
+  el.className = 'resultmsg' + (kind ? ' ' + kind : '');
+  el.textContent = msg;
+}
+
+$('btnDownload').addEventListener('click', () => {
+  canvas.toBlob(blob => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'selfietor-jetour.png';
+    a.click();
+    setResultMsg('Tersimpan ke HP kamu.', 'ok');
+  }, 'image/png');
+});
+
+$('btnSubmit').addEventListener('click', () => {
+  $('btnSubmit').disabled = true;
+  setResultMsg('Mengirim…', '');
+  canvas.toBlob(async blob => {
+    try{
+      const formData = new FormData();
+      formData.append('file', blob, 'submission.jpg');
+      if (selectedTemplate) formData.append('template_id', selectedTemplate.id);
+      const res = await fetch(`${API_BASE}/api/submissions`, { method: 'POST', body: formData });
+      if (!res.ok){
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Submit gagal');
+      }
+      setResultMsg('Berhasil dikirim ke admin!', 'ok');
+    }catch(err){
+      setResultMsg('Gagal submit: ' + err.message, 'err');
+    }finally{
+      $('btnSubmit').disabled = false;
+    }
+  }, 'image/jpeg', 0.9);
+});
+
+$('startOver').addEventListener('click', () => {
+  selfieFile = null; personImg = null;
+  $('selfiePreview').innerHTML = 'Belum ada foto';
+  $('cameraInput').value = ''; $('galleryInput').value = '';
+  $('toStep3').disabled = true;
+  setProcessStatus('', '');
+  setResultMsg('', '');
+  goStep(2);
+});
+
+loadTemplates();
+</script>
+</body>
+</html>

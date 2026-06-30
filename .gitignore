@@ -1,0 +1,15 @@
+# Secrets — JANGAN PERNAH di-commit
+backend/.env
+
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+
+# Data (database + foto submission visitor)
+backend/data/*.db
+backend/data/templates/*
+backend/data/submissions/*
+
+# OS
+.DS_Store

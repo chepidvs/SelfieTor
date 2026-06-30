@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SelfieTor Admin — Dashboard</title>
+<style>
+  :root{--bg:#14110E;--panel:#1F1A15;--panel2:#272019;--border:#3A322A;--text:#EDE7DF;--muted:#A39B8E;--accent:#E8853A;--err:#E27866;--ok:#5DCAA5;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,sans-serif;padding:24px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+  h1{font-size:18px;margin:0}
+  button.logout{background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:18px}
+  h2{font-size:14px;margin:0 0 14px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+  input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:14px;margin-bottom:12px}
+  input[type=file]{width:100%;font-size:13px;color:var(--text);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:12px}
+  button.primary{background:var(--accent);border:0;border-radius:8px;color:#241300;font-weight:600;padding:10px 16px;cursor:pointer;font-size:14px}
+  button.primary:disabled{opacity:.5;cursor:not-allowed}
+  .msg{font-size:13px;min-height:18px;margin-top:8px}
+  .msg.err{color:var(--err)} .msg.ok{color:var(--ok)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .tpl{background:var(--panel2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+  .tpl img{width:100%;aspect-ratio:9/16;object-fit:cover;display:block}
+  .tpl .info{padding:8px}
+  .tpl .name{font-size:13px;margin-bottom:6px}
+  .tpl .date{font-size:11px;color:var(--muted);margin-bottom:6px}
+  .tpl button{width:100%;background:none;border:1px solid var(--border);color:var(--err);border-radius:6px;padding:6px;font-size:12px;cursor:pointer}
+  .empty{color:var(--muted);font-size:13px}
+  .refresh{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;float:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>SelfieTor — Admin</h1>
+    <button class="logout" id="logoutBtn">Logout</button>
+  </header>
+
+  <div class="panel">
+    <h2>Upload template baru</h2>
+    <form id="uploadForm">
+      <label for="name">Nama template</label>
+      <input type="text" id="name" placeholder="contoh: Mountain Sunset" required>
+      <label for="file">File gambar (JPG/PNG/WEBP)</label>
+      <input type="file" id="file" accept="image/*" required>
+      <button class="primary" type="submit" id="uploadBtn">Upload</button>
+      <div class="msg" id="uploadMsg"></div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Template aktif (<span id="count">0</span>/5)</h2>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" style="display:none">Belum ada template. Upload dulu di atas.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Foto submission visitor (<span id="subCount">0</span>) <button class="refresh" id="refreshSub">Refresh</button></h2>
+    <div class="grid" id="subGrid"></div>
+    <div class="empty" id="subEmpty" style="display:none">Belum ada foto yang disubmit visitor.</div>
+  </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000';
+
+async function checkAuth() {
+  const res = await fetch(`${API_BASE}/api/me`, { credentials: 'include' });
+  if (!res.ok) window.location.href = 'login.html';
+}
+
+async function loadTemplates() {
+  const res = await fetch(`${API_BASE}/api/admin/templates`, { credentials: 'include' });
+  const data = await res.json();
+  const active = data.filter(t => t.active);
+  document.getElementById('count').textContent = active.length;
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  grid.innerHTML = '';
+  empty.style.display = active.length ? 'none' : 'block';
+  for (const t of active) {
+    const div = document.createElement('div');
+    div.className = 'tpl';
+    div.innerHTML = `
+      <img src="${API_BASE}${t.url}" alt="${t.name}">
+      <div class="info">
+        <div class="name">${t.name}</div>
+        <button data-id="${t.id}">Hapus</button>
+      </div>`;
+    div.querySelector('button').addEventListener('click', () => deleteTemplate(t.id));
+    grid.appendChild(div);
+  }
+}
+
+async function deleteTemplate(id) {
+  if (!confirm('Yakin hapus template ini?')) return;
+  await fetch(`${API_BASE}/api/admin/templates/${id}`, { method: 'DELETE', credentials: 'include' });
+  loadTemplates();
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+async function loadSubmissions() {
+  const res = await fetch(`${API_BASE}/api/admin/submissions`, { credentials: 'include' });
+  const data = await res.json();
+  document.getElementById('subCount').textContent = data.length;
+  const grid = document.getElementById('subGrid');
+  const empty = document.getElementById('subEmpty');
+  grid.innerHTML = '';
+  empty.style.display = data.length ? 'none' : 'block';
+  for (const s of data) {
+    const div = document.createElement('div');
+    div.className = 'tpl';
+    div.innerHTML = `
+      <img src="${API_BASE}${s.url}" alt="submission">
+      <div class="info">
+        <div class="date">${formatDate(s.submitted_at)}</div>
+      </div>`;
+    grid.appendChild(div);
+  }
+}
+
+document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('uploadBtn');
+  const msg = document.getElementById('uploadMsg');
+  btn.disabled = true;
+  msg.className = 'msg';
+  msg.textContent = 'Uploading...';
+
+  const formData = new FormData();
+  formData.append('name', document.getElementById('name').value);
+  formData.append('file', document.getElementById('file').files[0]);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/templates`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.className = 'msg err';
+      msg.textContent = data.detail || 'Upload gagal';
+    } else {
+      msg.className = 'msg ok';
+      msg.textContent = 'Template berhasil diupload.';
+      document.getElementById('uploadForm').reset();
+      loadTemplates();
+    }
+  } catch (err) {
+    msg.className = 'msg err';
+    msg.textContent = 'Gak bisa connect ke server: ' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('refreshSub').addEventListener('click', loadSubmissions);
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch(`${API_BASE}/api/logout`, { method: 'POST', credentials: 'include' });
+  window.location.href = 'login.html';
+});
+
+checkAuth();
+loadTemplates();
+loadSubmissions();
+</script>
+</body>
+</html>
