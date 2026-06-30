@@ -69,7 +69,7 @@ const API_BASE = '';
 
 async function checkAuth() {
   const res = await fetch(`${API_BASE}/api/me`, { credentials: 'include' });
-  if (!res.ok) window.location.href = 'login.html';
+  if (!res.ok) window.location.href = '/admin';
 }
 
 async function loadTemplates() {
@@ -166,7 +166,7 @@ document.getElementById('refreshSub').addEventListener('click', loadSubmissions)
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await fetch(`${API_BASE}/api/logout`, { method: 'POST', credentials: 'include' });
-  window.location.href = 'login.html';
+  window.location.href = '/admin';
 });
 
 checkAuth();
